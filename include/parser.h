@@ -20,7 +20,7 @@ struct Market_data {
     long timestamp;
 };
 
-class MessageParser {
+class MessageRouter {
 public:
     static Market_data parseMarketData(const std::string &message);
 };
@@ -36,6 +36,11 @@ public:
 };
 
 class FileParser {
+public:
+    static Market_data parseMarketData(const std::string &message);
+};
+
+class CSVParser {
 public:
     static Market_data parseMarketData(const std::string &message);
 };
