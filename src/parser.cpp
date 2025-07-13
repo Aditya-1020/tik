@@ -1,6 +1,5 @@
 // Parse Data from Other streams
 #include "parser.h"
-#include <iostream>
 
 Market_data MessageRouter::parseMarketData(const std::string &message){
     
@@ -19,11 +18,40 @@ Market_data MessageRouter::parseMarketData(const std::string &message){
     return Market_data{};
 }
 
-Market_data FIXParser::parseMarketData(const std::string &message){
+Market_data FIXParser::parseMarketData(const std::string &message) {
     // TODO: FIX parser implementation
-    // https://www.fixtrading.org/standards/ 
-    // https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NQTVITCHspecification.pdf
-    return Market_data{};
+    Market_data data;
+
+    std::regex msg_type_regex("35=W");
+    if(!std::regex_search(message, msg_type_regex)) {
+        return Market_data{};
+    }
+
+    std::smatch match;
+    
+    std::regex symbol_regex("55=([^\x01]+)");
+    if (std::regex_search(message, match, symbol_regex)) {
+        data.symbol = match[1].str();
+    }
+
+    std::regex bid_regex("269=0[^\x01]*\x01270=([^\x01]+)\x01271=([^\x01]+)");
+    if (std::regex_search(message, match, bid_regex)) {
+        data.bid_price = std::stod(match[1].str());
+        data.bid_quantity = std::stoi(match[2].str());
+    }
+
+    std::regex ask_regex("269=1[^\x01]*\x01270=([^\x01]+)\x01271=([^\x01]+)");
+    if (std::regex_search(message, match, ask_regex)) {
+        data.ask_price = std::stod(match[1].str());
+        data.ask_quantity = std::stoi(match[2].str());
+    }
+    
+    std::regex timestamp_regex("52=([^\x01]+)");
+    if (std::regex_search(message, match, timestamp_regex)) {
+        data.timestamp = match[1].str();
+    }
+
+    return data;
 }
 
 Market_data CSVParser::parseMarketData(const std::string &message) {
@@ -50,8 +78,8 @@ Market_data CSVParser::parseMarketData(const std::string &message) {
     data.timestamp = std::stol(parts[5]);
 
     return data;
-}
 
+}
 
 Market_data FileParser::parseMarketData(const std::string &message) {
 

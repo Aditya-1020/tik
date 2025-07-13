@@ -1,18 +1,11 @@
 #pragma once
-#include <fstream>
-#include <sstream>
 #include <string>
-#include <thread>
-#include <iostream>
-#include <vector>
-#include <netinet/in.h>
-#include <unistd.h>
-#include "parser.h"
-#include "receive.h"
 #include <sys/socket.h>
-#include <cstring>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <cstring>
+#include <iostream>
 
 #define BUFFER_SIZE 1024
 

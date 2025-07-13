@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <regex>
 #include <string>
 #include <thread>
 #include <iostream>
@@ -17,7 +18,7 @@ struct Market_data {
     double ask_price;
     int bid_quantity;
     int ask_quantity;
-    long timestamp;
+    std::string timestamp;
 };
 
 class MessageRouter {

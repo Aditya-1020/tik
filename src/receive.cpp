@@ -1,8 +1,6 @@
 // TCP client to connect to the servers and get the market data files
-#include "parser.h"
 #include "receive.h"
-#include <iostream>
-
+#include "parser.h"
 
 void Data_receiver::reciveMarketData(){
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -29,14 +27,13 @@ void Data_receiver::reciveMarketData(){
         if (bytes_read <= 0) break;
 
         std::string raw_msg(buffer);
-        Market_data md = MessageParser::parseMarketData(raw_msg);
+        Market_data md = MessageRouter::parseMarketData(raw_msg);
 
         std::cout << "Received: " << md.symbol << " " << md.bid_price << " " << md.ask_price << "\n";
-
-        // todw: serialize order and send it
-        
     }
-
-
+    
+    
+    // todw: serialize order and send it
+    
     close(sock);
 }
