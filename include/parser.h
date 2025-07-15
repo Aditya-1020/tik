@@ -2,15 +2,14 @@
 
 #include <fstream>
 #include <sstream>
-#include <regex>
 #include <string>
 #include <thread>
 #include <iostream>
 #include <vector>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include "receive.h"
+#include "orders.h"
 
 struct Market_data {
     std::string symbol = "";

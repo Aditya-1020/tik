@@ -1,32 +1,35 @@
+# Test UDP server
 import socket
 import time
-import threading
 
-def send_market_data(client_socket):
-    try:
-        while True:
-            # Use actual SOH character (\x01) instead of literal ^A
-            message = "8=FIX.4.4\x0135=W\x0152=20240101-12:30:45\x0155=AAPL\x01268=2\x01269=0\x01270=150.25\x01271=100\x01269=1\x01270=150.30\x01271=200\x0110=123\x01"
-            client_socket.send(message.encode())
-            time.sleep(1)
-    except Exception as e:
-        print(f"Client disconnected: {e}")
-    finally:
-        client_socket.close()
+# CHUNK_SIZE = 1024
+# filepath = ''
+client_ip = 'localhost'
+client_port = 9000
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind(('127.0.0.1', 9000))
-server.listen(1)
+udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-print("Server listening on 127.0.0.1:9000")
+print(f"Sending UDP data to {client_ip}:{client_port}")
+
+"""
+# File sending
+with open(filepath, 'rb') as f:
+    while chunk := f.read(CHUNK_SIZE):
+        udp_socket.sendto(chunk, (client_ip, client_port))
+        time.sleep(0.01)
+
+udp_socket.sendto(b'EOF', (client_ip, client_port))
+udp_socket.close()
+print("File sent")
+"""
 
 try:
     while True:
-        client, addr = server.accept()
-        print(f"Client connected from {addr}")
-        threading.Thread(target=send_market_data, args=(client,)).start()
+        message = "TEST"
+        udp_socket.sendto(message.encode(), (client_ip, client_port))
+        print(f"Sent: {message}")
+        time.sleep(1)
 except KeyboardInterrupt:
-    print("Server shutting down...")
+    print("Stopped")
 finally:
-    server.close()
+    udp_socket.close()
