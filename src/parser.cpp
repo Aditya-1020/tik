@@ -4,9 +4,14 @@
 
 Market_data MessageRouter::parseMarketData(const std::string &message){
     
-    if (message.compare(0,5, "8=FIX") == 0) {
-        return FIXParser::parseMarketData(message);
-    } // else add SBE
+    if (message.size() >= 5 && 
+        message[0] == '8' &&
+        message[1] == '=' &&
+        message[2] == 'F' &&
+        message[3] == 'I' &&
+        message[4] == 'X') {
+            return FIXParser::parseMarketData(message);
+    } // Implement SBE and quit if none
 
     return Market_data{};
 }
