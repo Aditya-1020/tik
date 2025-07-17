@@ -35,3 +35,5 @@ int OrderBook::getAskQuantity(double price) const {
     auto op = asks.find(price);
     return (op != asks.end()) ? op->second : 0;
 }
+
+// need to add tracking for indiv orders for adding, calcleing, executng
