@@ -25,7 +25,7 @@ print("File sent")
 
 try:
     while True:
-        message = "TEST"
+        message = "8=FIX.4.2\x019=123\x0135=W\x0155=EUR/USD\x01268=2\x01269=0\x01270=1.1234\x01271=100000\x01269=1\x01270=1.1236\x01271=120000\x0110=168\x01"
         udp_socket.sendto(message.encode(), (client_ip, client_port))
         print(f"Sent: {message}")
         time.sleep(1)

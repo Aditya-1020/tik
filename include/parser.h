@@ -11,8 +11,6 @@
 #include <map>
 #include <unordered_map>
 #include <functional>
-#include "receive.h"
-#include "orders.h"
 
 struct Market_data {
     std::string symbol = "";
@@ -71,7 +69,7 @@ private:
     
     // helper Functions for sm
     // handle char based on state
-    static State processChar(char c, State current_state, std::string &current_tag, std::string current_value, MDContext &md_context, Market_data &result);
+    static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, Market_data &result);
     // process tag=value
     static void processField(const std::string &tag, const std::string &value, MDContext &md_context, Market_data &result); 
     static State determineNextState(const std::string &tag, const MDContext &md_context);

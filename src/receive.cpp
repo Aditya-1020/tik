@@ -30,7 +30,7 @@ void Data_receiver::reciveMarketData(){
 
         if (bytes_read <= 0) break;
 
-        std::string raw_msg(buffer);
+        std::string raw_msg(buffer, bytes_read);
         Market_data md = MessageRouter::parseMarketData(raw_msg);
 
         std::cout << "Received: " << md.symbol << " " << md.bid_price << " " << md.ask_price << "\n";

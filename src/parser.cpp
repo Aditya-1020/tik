@@ -41,7 +41,7 @@ Market_data FIXParser::parseMarketData(const std::string &message){
 }
 
 // Process each char based on state
-FIXParser::State FIXParser::processChar(char c, State current_state, std::string &current_tag, std::string current_value, MDContext &md_context, Market_data &result) {
+FIXParser::State FIXParser::processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, Market_data &result) {
 
     switch (current_state) {
         case State::INITIAL_STATE:
