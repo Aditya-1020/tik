@@ -11,13 +11,10 @@
 #include <map>
 
 class OrderBook {
-    std::map<double, int> bids;   // price -> quantity
-    std::map<double, int> asks;   // price -> quantity
+    std::map<double, int> bids;   // price -> quantity (decending)
+    std::map<double, int> asks;   // price -> quantity (acending)
+
 public:
-    void updateBid(double price, int quantity) {
-        bids[price] = quantity;
-    }
-    void updateAsk(double price, int quantity) {
-        asks[price] = quantity;
-    }
+    void updateBid(double price, int quantity);
+    void updateAsk(double price, int quantity);
 };

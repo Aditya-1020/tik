@@ -1,7 +1,6 @@
 // Parse Data from Other streams
 #include "parser.h"
 
-
 Market_data MessageRouter::parseMarketData(const std::string &message){
     
     if (message.size() >= 5 && 
@@ -62,7 +61,7 @@ FIXParser::State FIXParser::processChar(char c, State current_state, std::string
             return State::ERROR_STATE;
         
         case State::READING_VALUE:
-            if (c = '\x01') {
+            if (c == '\x01') {
                 processField(current_tag, current_value, md_context, result);
                 State next_state = determineNextState(current_tag, md_context);
                 
@@ -98,7 +97,6 @@ FIXParser::State FIXParser::processChar(char c, State current_state, std::string
     }
 }
 
-
 void FIXParser::processField(const std::string &tag, const std::string &value, MDContext &md_context, Market_data &result) {
 
     int tag_int = std::stoi(tag);
@@ -124,7 +122,7 @@ void FIXParser::processField(const std::string &tag, const std::string &value, M
             break;
     }
 
-    std::string tag = std::to_string(tag_int);
+//     std::string tag = std::to_string(tag_int);
 }
 
 void FIXParser::commitMDEntry(MDContext &md_context, Market_data &result) {
@@ -140,22 +138,25 @@ void FIXParser::commitMDEntry(MDContext &md_context, Market_data &result) {
 }
 
 FIXParser::State FIXParser::determineNextState(const std::string &tag, const MDContext &md_context){
+    (void)md_context; // unused parameter
+
     int tag_int = std::stoi(tag);
     
     switch (tag_int){
-        case 269: return State::MD_ENTRY_TYPE_FOUND; break;
-        case 270: return State::EXPECTING_QUANTITY; break;
-        case 271: return State::READING_TAG; break;
-        case 10: return State::COMPLETE; break;
+        case 269: return State::MD_ENTRY_TYPE_FOUND;
+        case 270: return State::EXPECTING_QUANTITY;
+        case 271: return State::READING_TAG;
+        case 10: return State::COMPLETE;
+        default: return State::READING_TAG;
     }
 
-    return State::READING_TAG;
-
-    std::string tag = std::to_string(tag_int);
+    // std::string tag = std::to_string(tag_int);
 }
 
 Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
-    // TODU: IMPLEMENT SBE PARSING
-    return;
-}
+    
+    (void)buffer;
 
+    // TODU: IMPLEMENT SBE PARSING
+    return Market_data{};
+}

@@ -3,7 +3,7 @@ CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -I$(INCDIR)
 TARGET = tik
 SRCDIR = src
 INCDIR = include
-SOURCES = $(SRCDIR)/main.cpp $(SRCDIR)/receive.cpp $(SRCDIR)/parser.cpp
+SOURCES = $(SRCDIR)/main.cpp $(SRCDIR)/receive.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/orders.cpp
 
 $(TARGET): $(SOURCES)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES)
