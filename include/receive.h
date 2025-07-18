@@ -7,6 +7,9 @@
 #include <cstring>
 #include <iostream>
 
+#include "orders.h"
+#include "parser.h"
+
 #define BUFFER_SIZE 1024
 
 class Data_receiver {

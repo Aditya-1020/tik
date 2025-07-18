@@ -1,6 +1,5 @@
 // UDP receiver
 #include "receive.h"
-#include "parser.h"
 
 void Data_receiver::reciveMarketData(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -32,7 +31,7 @@ void Data_receiver::reciveMarketData(){
 
         std::string raw_msg(buffer, bytes_read);
         Market_data md = MessageRouter::parseMarketData(raw_msg);
-
+        
         std::cout << "Received: " << md.symbol << " " << md.bid_price << " " << md.ask_price << "\n";
     }
     

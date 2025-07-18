@@ -5,5 +5,6 @@
 int main(){
     Data_receiver dr;
     dr.reciveMarketData();
+    
     return 0;
 }
