@@ -12,6 +12,9 @@
 #include <unordered_map>
 #include <functional>
 
+// break circular dependency
+class OrderBook;
+
 struct Market_data {
     std::string symbol = "";
     double bid_price = 0.0;
@@ -23,11 +26,10 @@ struct Market_data {
     bool is_valid = false;
 };
 
-
-
 class MessageRouter {
 public:
-    static Market_data parseMarketData(const std::string &message);
+    // Updated to pass the order book by reference
+    static void parseMarketData(const std::string &message, OrderBook &book);
 };
 
 class FIXParser {
@@ -63,21 +65,23 @@ public:
     
     };
 
-    static Market_data parseMarketData(const std::string &message);
+    static void parseMarketData(const std::string &message, OrderBook &book);
     
 private:
     
     // helper Functions for sm
     // handle char based on state
-    static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, Market_data &result);
+    static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, OrderBook &book, std::string &symbol);
     // process tag=value
-    static void processField(const std::string &tag, const std::string &value, MDContext &md_context, Market_data &result); 
+    static void processField(const std::string &tag, const std::string &value, MDContext &md_context, OrderBook &book, std::string &symbol); 
     static State determineNextState(const std::string &tag, const MDContext &md_context);
-    static void commitMDEntry(MDContext &md_context, Market_data &result); // commit market data entry to result
+    // Updated to update the book directly
+    static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string &symbol);
 
 };
 
 class SBEParser {
 public:
+    // This would also be updated in a full implementation
     static Market_data parseMarketData(const std::vector<uint8_t> &buffer);
 };

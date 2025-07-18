@@ -9,10 +9,15 @@
 
 #include "orders.h"
 #include "parser.h"
+#include "ordermanager.h"
 
 #define BUFFER_SIZE 1024
 
 class Data_receiver {
 public:
     void reciveMarketData();
+
+private:
+    OrderBook orderbook;
+    OrderManager order_manager;
 };

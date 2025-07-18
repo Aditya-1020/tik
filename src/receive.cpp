@@ -1,5 +1,6 @@
 // UDP receiver
 #include "receive.h"
+#include <optional>
 
 void Data_receiver::reciveMarketData(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -30,13 +31,25 @@ void Data_receiver::reciveMarketData(){
         if (bytes_read <= 0) break;
 
         std::string raw_msg(buffer, bytes_read);
-        Market_data md = MessageRouter::parseMarketData(raw_msg);
+        MessageRouter::parseMarketData(raw_msg, orderbook);
+
+        double best_bid = orderbook.getBestBid();
+        double best_ask = orderbook.getBestAsk();
         
-        std::cout << "Received: " << md.symbol << " " << md.bid_price << " " << md.ask_price << "\n";
-    }
-    
-    
-    // todw: serialize order and send it
-    
+        std::cout << "Update Proesed | Current Best Bid/Ask: " << best_bid << "/" << best_ask << "\n" << std::endl;
+
+        std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
+
+        if (potential_order.has_value()) {
+            TradeOrder order_to_send = potential_order.value();
+
+            // TODU: Serialize order into FIX/SBE and send back to exchange
+
+                // temp print testing
+                std::cout << "_------_" << std::endl;
+                std::cout << "Trade action: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") << " " << order_to_send.quantity << " " << order_to_send.symbol << " @ " << order_to_send.price << std::endl;
+                std::cout << "_------_" << std::endl;
+            }
+        }
     close(sock);
 }

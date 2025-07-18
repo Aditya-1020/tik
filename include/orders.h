@@ -9,7 +9,6 @@
 #include <map>
 
 #include "parser.h"
-#include "receive.h"
 
 class OrderBook {
     // Node: first is price and second is quantity
