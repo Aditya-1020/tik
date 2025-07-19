@@ -5,6 +5,8 @@ OrderManager::OrderManager() {
     std::cout << "[OrderManager] initialized. Target buy price for EUR/USD: " << TargetBuyPrice << std::endl;
 }
 
+TradeOrder::
+
 std::optional<TradeOrder> OrderManager::evaluateMarket(const OrderBook &book, const std::string &symbol) {
     if (symbol != "EUR/USD") {
         return std::nullopt;

@@ -3,11 +3,11 @@
 #include <string>
 #include <optional>
 #include <iostream>
-#include "orders.h"
 
+class OrderBook; // Forward declertion brek circular dependency
 
 struct TradeOrder {
-    enum class Side {BUY, SELL};
+    enum class Side { BUY, SELL };
     std::string symbol;
     Side side;
     double price;
@@ -17,8 +17,7 @@ struct TradeOrder {
 class OrderManager {
 public:
     OrderManager();
-
-    std::optional<TradeOrder> evaluateMarket(const OrderBook &book, const std::string &symbol);
+    std::optional<TradeOrder> evaluateMarket(const OrderBook& book, const std::string& symbol);
 
 private:
     double TargetBuyPrice;

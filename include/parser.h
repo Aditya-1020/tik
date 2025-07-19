@@ -1,19 +1,10 @@
 #pragma once
 
-#include <fstream>
-#include <sstream>
 #include <string>
-#include <thread>
-#include <iostream>
 #include <vector>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <map>
-#include <unordered_map>
-#include <functional>
-
-// break circular dependency
-class OrderBook;
+// Break circular dependencies with Foward Declerations
+class OrderBook; 
+struct TradeOrder;
 
 struct Market_data {
     std::string symbol = "";
@@ -28,7 +19,6 @@ struct Market_data {
 
 class MessageRouter {
 public:
-    // Updated to pass the order book by reference
     static void parseMarketData(const std::string &message, OrderBook &book);
 };
 
@@ -38,7 +28,6 @@ public:
         INITIAL_STATE,
         READING_TAG,
         READING_VALUE,
-        PROCESSING_REAPEAT_GRP,
         MD_ENTRY_TYPE_FOUND,
         EXPECTING_PRICE,
         EXPECTING_QUANTITY,
@@ -62,26 +51,32 @@ public:
             has_price = false;
             has_quantity = false;
         }
-    
     };
 
+    // Parsing
     static void parseMarketData(const std::string &message, OrderBook &book);
-    
+
+    // Serialize Order
+    static std::string serializeOrder(const TradeOrder &order,
+        const std::string &sender_id = "TRADER",
+        const std::string &target_id = "EXCHANGE");
+
 private:
     
-    // helper Functions for sm
-    // handle char based on state
+    // Parsing helpder
     static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, OrderBook &book, std::string &symbol);
-    // process tag=value
     static void processField(const std::string &tag, const std::string &value, MDContext &md_context, OrderBook &book, std::string &symbol); 
     static State determineNextState(const std::string &tag, const MDContext &md_context);
-    // Updated to update the book directly
     static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string &symbol);
-
+    
+    // Serialize helpers
+    static std::string generateClientOrderID();
+    static std::string getTimestamp();
+    static int calculateChecksum(const std::string &message);
+    static std::string formatPrice(double price);
 };
 
 class SBEParser {
 public:
-    // This would also be updated in a full implementation
     static Market_data parseMarketData(const std::vector<uint8_t> &buffer);
 };

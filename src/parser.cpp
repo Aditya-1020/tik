@@ -1,5 +1,11 @@
 #include "parser.h"
-#include "orders.h" // Include OrderBook definition
+#include "orders.h"
+#include "ordermanager.h"
+#include <iostream>
+#include <chrono>
+#include <random>
+#include <sstream>
+#include <iomanip>
 
 void MessageRouter::parseMarketData(const std::string &message, OrderBook &book){
     if (message.size() >= 5 && 
@@ -81,7 +87,7 @@ void FIXParser::processField(const std::string &tag, const std::string &value, M
             md_context.has_quantity = true;
             if (md_context.has_price) { commitMDEntry(md_context, book, symbol); }
             break;
-        // Other tags like 35, 52 can be processed if needed
+        // TODU: Other tags 35, 52
     }
 }
 
@@ -91,13 +97,13 @@ void FIXParser::commitMDEntry(MDContext &md_context, OrderBook& book, const std:
         return;
     }
 
-    if (md_context.entry_type == "0") { // Bid
+    if (md_context.entry_type == "0") {
         book.updateBid(md_context.price, md_context.quantity);
     } else if (md_context.entry_type == "1") { // Ask
         book.updateAsk(md_context.price, md_context.quantity);
     }
 
-    // Reset context for the next entry in the snapshot
+    // Reset context for next entry snapshot
     md_context.reset();
 }
 
@@ -116,4 +122,12 @@ FIXParser::State FIXParser::determineNextState(const std::string &tag, const MDC
 Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
     (void)buffer;
     return Market_data{};
+}
+
+std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string &sender_id, const std::string &target_id) {
+    std::ostringstream fix_message;
+
+    fix_message << "8=FIX.4.2\x01"; // header
+
+
 }
