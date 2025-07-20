@@ -2,6 +2,10 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
+
+#define CHECKSUM_MODULO 256
+
 // Break circular dependencies with Foward Declerations
 class OrderBook; 
 struct TradeOrder;
@@ -62,7 +66,7 @@ public:
         const std::string &target_id = "EXCHANGE");
 
 private:
-    
+
     // Parsing helpder
     static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, OrderBook &book, std::string &symbol);
     static void processField(const std::string &tag, const std::string &value, MDContext &md_context, OrderBook &book, std::string &symbol); 
@@ -70,7 +74,7 @@ private:
     static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string &symbol);
     
     // Serialize helpers
-    static std::string generateClientOrderID();
+    static std::string generateOrderID();
     static std::string getTimestamp();
     static int calculateChecksum(const std::string &message);
     static std::string formatPrice(double price);

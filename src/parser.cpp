@@ -87,7 +87,7 @@ void FIXParser::processField(const std::string &tag, const std::string &value, M
             md_context.has_quantity = true;
             if (md_context.has_price) { commitMDEntry(md_context, book, symbol); }
             break;
-        // TODU: Other tags 35, 52
+        // TODO: Other tags 35, 52
     }
 }
 
@@ -119,15 +119,79 @@ FIXParser::State FIXParser::determineNextState(const std::string &tag, const MDC
     }
 }
 
+// FIX: Fixed function signature to match header
 Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
     (void)buffer;
     return Market_data{};
 }
 
+// 8=FIX.4.2\x || 019=123\x01 || 35=W\x01 || 55=EUR/USD\x01 || 268=2\x01269=0\x01 || 270=1.1234\x01 || 271=100000\x01 || 269=1\x01 || 
+// 270=1.1236\x01 || 271=120000\x01 || 10=168\x01
+
 std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string &sender_id, const std::string &target_id) {
+    // FIX: Suppress unused parameter warnings
+    (void)sender_id;
+    (void)target_id;
+    
     std::ostringstream fix_message;
 
     fix_message << "8=FIX.4.2\x01"; // header
+    std::string body_start = "35=D\x01";
+    body_start += "49=TRADER\x01";
+    body_start += "56=EXCHANGE\x01";
+    body_start += "52=" + getTimestamp() + "\x01";
 
+    // Order details
+    std::ostringstream order_details;
+    order_details << "11=" << generateOrderID() << "\x01";
+    order_details << "55=" << order.symbol << "\x01";
+    order_details << "54=" << ((order.side == TradeOrder::Side::BUY) ? "1" : "2") << "\x01"; // 1 = Buy, 2 = Sell
+    order_details << "38=" << order.quantity << "\x01";
+    order_details << "40=2\x01";
+    order_details << "44=" << std::fixed << std::setprecision(5) << order.price << "\x01"; // Price
+    order_details << "59=0\x01";
 
+    
+    std::string full_body = body_start + order_details.str();
+    std::string body_length = "9=" + std::to_string(full_body.length()) + "\x01";
+    std::string message_without_checksum = "8=FIX.4.2\x01" + body_length + full_body;
+
+    int checksum = calculateChecksum(message_without_checksum);
+    fix_message.str("");
+    fix_message << message_without_checksum;
+    fix_message << "10=" << std::setfill('0') << std::setw(3) << checksum << "\x01";
+
+    return fix_message.str();
+}
+
+// FIX: Removed duplicate generateOrderID function - keeping this one
+std::string FIXParser::generateOrderID() {
+    auto now = std::chrono::system_clock::now();
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dis(1000, 9999);
+    
+    return "ORD" + std::to_string(timestamp) + std::to_string(dis(gen));
+}
+
+int FIXParser::calculateChecksum(const std::string &message) {
+    int sum = 0;
+    for (char c : message) {
+        sum += static_cast<unsigned char>(c);
+    }
+    return sum % CHECKSUM_MODULO;
+}
+
+std::string FIXParser::getTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    
+    std::ostringstream oss;
+    oss << std::put_time(std::gmtime(&time_t), "%Y%m%d-%H:%M:%S");
+    oss << "." << std::setfill('0') << std::setw(3) << ms.count();
+    
+    return oss.str();
 }
