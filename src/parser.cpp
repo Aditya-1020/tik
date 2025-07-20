@@ -128,7 +128,7 @@ Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
 // 8=FIX.4.2\x || 019=123\x01 || 35=W\x01 || 55=EUR/USD\x01 || 268=2\x01269=0\x01 || 270=1.1234\x01 || 271=100000\x01 || 269=1\x01 || 
 // 270=1.1236\x01 || 271=120000\x01 || 10=168\x01
 
-std::string FIXParser::serializeOrder(const TradeOrder &order, std::string_view sender_id, std::string_view target_id, Data_receiver &receiver) {
+std::string FIXParser::serializeOrder(const TradeOrder &order, Data_receiver &receiver,std::string_view sender_id, std::string_view target_id) {
     // Suppress unused parameter warnings
     (void)sender_id;
     (void)target_id;

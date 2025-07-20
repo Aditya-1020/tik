@@ -63,9 +63,9 @@ public:
     static void parseMarketData(const std::string_view &message, OrderBook &book);
 
     // Serialize Order
-    static std::string serializeOrder(const TradeOrder &order,
+    static std::string serializeOrder(const TradeOrder &order, Data_receiver &receiver,
         std::string_view sender_id = "TRADER",
-        std::string_view target_id = "EXCHANGE", Data_receiver &receiver);
+        std::string_view target_id = "EXCHANGE");
 
 private:
 
