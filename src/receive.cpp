@@ -24,6 +24,8 @@ void Data_receiver::reciveMarketData(){
     sockaddr_in client_address{};
     socklen_t client_len = sizeof(client_address);
     
+    std::cout << "Trading gateway started. Listening for market data..." << std::endl;
+    
     while (true){
         std::memset(buffer, 0, sizeof(buffer));
         int bytes_read = recvfrom(sock, buffer, sizeof(buffer), 0, (sockaddr *)&client_address, &client_len);
@@ -33,27 +35,22 @@ void Data_receiver::reciveMarketData(){
         std::string raw_msg(buffer, bytes_read);
         MessageRouter::parseMarketData(raw_msg, orderbook);
 
-        double best_bid = orderbook.getBestBid();
-        double best_ask = orderbook.getBestAsk();
-        
-        std::cout << "Update Proesed | Current Best Bid/Ask: " << best_bid << "/" << best_ask << "\n" << std::endl;
+        // double best_bid = orderbook.getBestBid();
+        // double best_ask = orderbook.getBestAsk();
 
         std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
 
         if (potential_order.has_value()) {
             TradeOrder order_to_send = potential_order.value();
 
-            // TODU: Serialize order into FIX/SBE and send back to exchange
-
+            // Serialize and send order
+            std::string fix_message = FIXParser::serializeOrder(order_to_send, *this);
             
-            
-
-                // temp print testing
-                std::cout << "_------_" << std::endl;
-                std::cout << "Trade action: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") << " " << order_to_send.quantity << " " << order_to_send.symbol << " @ " << order_to_send.price << std::endl;
-                std::cout << "_------_" << std::endl;
-            }
+            std::cout << "Order placed: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") 
+                      << " " << order_to_send.quantity << " " << order_to_send.symbol 
+                      << " @ " << order_to_send.price << std::endl;
         }
+    }
     close(sock);
 }
 
@@ -69,18 +66,14 @@ void Data_receiver::sendMarketData(const std::string_view send_order_message) {
     sockaddr_in exchange_address{};
     exchange_address.sin_family = AF_INET;
     exchange_address.sin_port = htons(EXCHANGE_PORT);
-    exchange_address.sin_addr.s_addr = inet_addr("EXCHANGE_IP");
+    exchange_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     ssize_t bytes_sent = sendto(send_sock, send_order_message.data(), send_order_message.length(), 0, (sockaddr *)&exchange_address, sizeof(exchange_address));
 
     if (bytes_sent < 0) {
         std::cerr << "Failed to send order Message\n";
         return;
-    } else std::cout << "Order sent: " << bytes_sent << "bytes\n";
-
+    }
 
     close(send_sock);
-    
-    // DEBUG
-    // std::cout << "[SEND]: FIX MSSAGE : " << send_order_message << std::endl;
 }

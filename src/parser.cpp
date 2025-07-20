@@ -119,7 +119,6 @@ FIXParser::State FIXParser::determineNextState(const std::string_view &tag, cons
     }
 }
 
-// FIX: Fixed function signature to match header
 Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
     (void)buffer;
     return Market_data{};
@@ -128,41 +127,39 @@ Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
 // 8=FIX.4.2\x || 019=123\x01 || 35=W\x01 || 55=EUR/USD\x01 || 268=2\x01269=0\x01 || 270=1.1234\x01 || 271=100000\x01 || 269=1\x01 || 
 // 270=1.1236\x01 || 271=120000\x01 || 10=168\x01
 
-std::string FIXParser::serializeOrder(const TradeOrder &order, Data_receiver &receiver,std::string_view sender_id, std::string_view target_id) {
-    // Suppress unused parameter warnings
+std::string FIXParser::serializeOrder(const TradeOrder &order, Data_receiver &receiver, std::string_view sender_id, std::string_view target_id) {
     (void)sender_id;
     (void)target_id;
     
     std::ostringstream fix_message;
 
-    fix_message << "8=FIX.4.2\x01"; // header
-    std::string body_start = "35=D\x01";
-    body_start += "49=TRADER\x01";
-    body_start += "56=EXCHANGE\x01";
-    body_start += "52=" + getTimestamp() + "\x01";
+    // message body first
+    std::ostringstream body;
+    body << "35=D\x01";  // New Order Single
+    body << "49=TRADER\x01";
+    body << "56=EXCHANGE\x01";
+    body << "52=" << getTimestamp() << "\x01";
+    body << "11=" << generateOrderID() << "\x01";
+    body << "55=" << order.symbol << "\x01";
+    body << "54=" << ((order.side == TradeOrder::Side::BUY) ? "1" : "2") << "\x01";
+    body << "38=" << order.quantity << "\x01";
+    body << "40=2\x01";  // Limit order
+    body << "44=" << std::fixed << std::setprecision(5) << order.price << "\x01";
+    body << "59=0\x01";  // Day order
 
-    // Order details
-    std::ostringstream order_details;
-    order_details << "11=" << generateOrderID() << "\x01";
-    order_details << "55=" << order.symbol << "\x01";
-    order_details << "54=" << ((order.side == TradeOrder::Side::BUY) ? "1" : "2") << "\x01"; // 1 = Buy, 2 = Sell
-    order_details << "38=" << order.quantity << "\x01";
-    order_details << "40=2\x01";
-    order_details << "44=" << std::fixed << std::setprecision(5) << order.price << "\x01"; // Price
-    order_details << "59=0\x01";
-
+    std::string body_str = body.str();
     
-    std::string full_body = body_start + order_details.str();
-    std::string body_length = "9=" + std::to_string(full_body.length()) + "\x01";
-    std::string message_without_checksum = "8=FIX.4.2\x01" + body_length + full_body;
+    // complete message
+    fix_message << "8=FIX.4.2\x01";
+    fix_message << "9=" << body_str.length() << "\x01";
+    fix_message << body_str;
 
+    std::string message_without_checksum = fix_message.str();
     int checksum = calculateChecksum(message_without_checksum);
-    fix_message.str("");
-    fix_message << message_without_checksum;
+    
     fix_message << "10=" << std::setfill('0') << std::setw(3) << checksum << "\x01";
 
     std::string send_order_message = fix_message.str();
-
     receiver.sendMarketData(send_order_message);
 
     return send_order_message;
@@ -173,7 +170,7 @@ std::string FIXParser::generateOrderID() {
     auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 
     static std::random_device rd;
-    static std::mt19937 gen(rd());
+    static std::mt19937 gen(rd()); // random number
     static std::uniform_int_distribution<int> dis(1000, 9999);
     
     return "ORD" + std::to_string(timestamp) + std::to_string(dis(gen));
