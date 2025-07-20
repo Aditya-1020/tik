@@ -18,6 +18,7 @@
 class Data_receiver {
 public:
     void reciveMarketData();
+    void sendMarketData();
 
 private:
     OrderBook orderbook;

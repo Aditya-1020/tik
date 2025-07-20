@@ -164,7 +164,6 @@ std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string
     return fix_message.str();
 }
 
-// FIX: Removed duplicate generateOrderID function - keeping this one
 std::string FIXParser::generateOrderID() {
     auto now = std::chrono::system_clock::now();
     auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
