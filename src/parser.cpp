@@ -8,7 +8,7 @@
 #include <sstream>
 #include <iomanip>
 
-void MessageRouter::parseMarketData(const std::string &message, OrderBook &book){
+void MessageRouter::parseMarketData(const std::string_view &message, OrderBook &book){
     if (message.size() >= 5 && 
         message[0] == '8' &&
         message[1] == '=' &&
@@ -19,7 +19,7 @@ void MessageRouter::parseMarketData(const std::string &message, OrderBook &book)
     }
 }
 
-void FIXParser::parseMarketData(const std::string &message, OrderBook &book){
+void FIXParser::parseMarketData(const std::string_view &message, OrderBook &book){
     State current_state = State::INITIAL_STATE;
     std::string current_tag = "";
     std::string current_value = "";
@@ -67,8 +67,8 @@ FIXParser::State FIXParser::processChar(char c, State current_state, std::string
     }
 }
 
-void FIXParser::processField(const std::string &tag, const std::string &value, MDContext &md_context, OrderBook& book, std::string& symbol) {
-    int tag_int = std::stoi(tag);
+void FIXParser::processField(std::string_view tag, std::string_view value, MDContext &md_context, OrderBook &book, std::string &symbol) {
+    int tag_int = std::stoi(std::string(tag));
     switch (tag_int) {
         case 55: // Symbol
             symbol = value;
@@ -79,12 +79,12 @@ void FIXParser::processField(const std::string &tag, const std::string &value, M
             md_context.has_quantity = false;
             break;
         case 270: // Price
-            md_context.price = std::stod(value);
+            md_context.price = std::stod(std::string(value));
             md_context.has_price = true;
             if (md_context.has_quantity) { commitMDEntry(md_context, book, symbol); }
             break;
         case 271: // Quantity
-            md_context.quantity = std::stoi(value);
+            md_context.quantity = std::stoi(std::string(value));
             md_context.has_quantity = true;
             if (md_context.has_price) { commitMDEntry(md_context, book, symbol); }
             break;
@@ -92,8 +92,7 @@ void FIXParser::processField(const std::string &tag, const std::string &value, M
     }
 }
 
-void FIXParser::commitMDEntry(MDContext &md_context, OrderBook& book, const std::string& symbol) {
-    // We can't update a book without a symbol
+void FIXParser::commitMDEntry(MDContext &md_context, OrderBook &book, const std::string_view &symbol) {
     if (symbol.empty()) {
         return;
     }
@@ -108,9 +107,9 @@ void FIXParser::commitMDEntry(MDContext &md_context, OrderBook& book, const std:
     md_context.reset();
 }
 
-FIXParser::State FIXParser::determineNextState(const std::string &tag, const MDContext &md_context){
-    (void)md_context; // unused parameter
-    int tag_int = std::stoi(tag);
+FIXParser::State FIXParser::determineNextState(const std::string_view &tag, const MDContext &md_context){
+    (void)md_context;
+    int tag_int = std::stoi(std::string(tag));
     switch (tag_int){
         case 269: return State::MD_ENTRY_TYPE_FOUND;
         case 270: return State::EXPECTING_QUANTITY;
@@ -129,7 +128,7 @@ Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
 // 8=FIX.4.2\x || 019=123\x01 || 35=W\x01 || 55=EUR/USD\x01 || 268=2\x01269=0\x01 || 270=1.1234\x01 || 271=100000\x01 || 269=1\x01 || 
 // 270=1.1236\x01 || 271=120000\x01 || 10=168\x01
 
-std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string &sender_id, const std::string &target_id, Data_receiver &receiver) {
+std::string FIXParser::serializeOrder(const TradeOrder &order, std::string_view sender_id, std::string_view target_id, Data_receiver &receiver) {
     // Suppress unused parameter warnings
     (void)sender_id;
     (void)target_id;
@@ -180,7 +179,7 @@ std::string FIXParser::generateOrderID() {
     return "ORD" + std::to_string(timestamp) + std::to_string(dis(gen));
 }
 
-int FIXParser::calculateChecksum(const std::string &message) {
+int FIXParser::calculateChecksum(const std::string_view &message) {
     int sum = 0;
     for (char c : message) {
         sum += static_cast<unsigned char>(c);

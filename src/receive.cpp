@@ -57,7 +57,7 @@ void Data_receiver::reciveMarketData(){
     close(sock);
 }
 
-void Data_receiver::sendMarketData(const std::string &send_order_message) {
+void Data_receiver::sendMarketData(const std::string_view send_order_message) {
     // Send back the string to market
 
     int send_sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -71,7 +71,7 @@ void Data_receiver::sendMarketData(const std::string &send_order_message) {
     exchange_address.sin_port = htons(EXCHANGE_PORT);
     exchange_address.sin_addr.s_addr = inet_addr("EXCHANGE_IP");
 
-    ssize_t bytes_sent = sendto(send_sock, send_order_message.c_str(), send_order_message.length(), 0, (sockaddr *)&exchange_address, sizeof(exchange_address));
+    ssize_t bytes_sent = sendto(send_sock, send_order_message.data(), send_order_message.length(), 0, (sockaddr *)&exchange_address, sizeof(exchange_address));
 
     if (bytes_sent < 0) {
         std::cerr << "Failed to send order Message\n";

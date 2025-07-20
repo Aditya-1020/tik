@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <string_view>
 
 #define CHECKSUM_MODULO 256
 
@@ -24,7 +25,7 @@ struct Market_data {
 
 class MessageRouter {
 public:
-    static void parseMarketData(const std::string &message, OrderBook &book);
+    static void parseMarketData(const std::string_view &message, OrderBook &book);
 };
 
 class FIXParser {
@@ -59,25 +60,25 @@ public:
     };
 
     // Parsing
-    static void parseMarketData(const std::string &message, OrderBook &book);
+    static void parseMarketData(const std::string_view &message, OrderBook &book);
 
     // Serialize Order
     static std::string serializeOrder(const TradeOrder &order,
-        const std::string &sender_id = "TRADER",
-        const std::string &target_id = "EXCHANGE", Data_receiver &receiver);
+        std::string_view sender_id = "TRADER",
+        std::string_view target_id = "EXCHANGE", Data_receiver &receiver);
 
 private:
 
     // Parsing helpder
     static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, OrderBook &book, std::string &symbol);
-    static void processField(const std::string &tag, const std::string &value, MDContext &md_context, OrderBook &book, std::string &symbol); 
-    static State determineNextState(const std::string &tag, const MDContext &md_context);
-    static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string &symbol);
+    static void processField(std::string_view tag, std::string_view value, MDContext &md_context, OrderBook &book, std::string &symbol); 
+    static State determineNextState(const std::string_view &tag, const MDContext &md_context);
+    static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string_view &symbol);
     
     // Serialize helpers
     static std::string generateOrderID();
     static std::string getTimestamp();
-    static int calculateChecksum(const std::string &message);
+    static int calculateChecksum(const std::string_view &message);
     static std::string formatPrice(double price);
 };
 

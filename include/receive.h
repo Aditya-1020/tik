@@ -19,7 +19,7 @@
 class Data_receiver {
 public:
     void reciveMarketData();
-    void sendMarketData(const std::string &send_order_message);
+    void sendMarketData(const std::string_view send_order_message);
 
 private:
     OrderBook orderbook;

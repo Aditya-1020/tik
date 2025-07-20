@@ -17,7 +17,7 @@ struct TradeOrder {
 class OrderManager {
 public:
     OrderManager();
-    std::optional<TradeOrder> evaluateMarket(const OrderBook& book, const std::string& symbol);
+    std::optional<TradeOrder> evaluateMarket(const OrderBook& book, std::string_view symbol);
 
 private:
     double TargetBuyPrice;
