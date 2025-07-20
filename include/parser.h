@@ -9,6 +9,7 @@
 // Break circular dependencies with Foward Declerations
 class OrderBook; 
 struct TradeOrder;
+class Data_receiver;
 
 struct Market_data {
     std::string symbol = "";
@@ -63,7 +64,7 @@ public:
     // Serialize Order
     static std::string serializeOrder(const TradeOrder &order,
         const std::string &sender_id = "TRADER",
-        const std::string &target_id = "EXCHANGE");
+        const std::string &target_id = "EXCHANGE", Data_receiver &receiver);
 
 private:
 

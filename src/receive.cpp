@@ -11,7 +11,7 @@ void Data_receiver::reciveMarketData(){
     
     sockaddr_in server_address{};
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(9000);
+    server_address.sin_port = htons(RECIEVE_PORT);
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (bind(sock, (sockaddr *)&server_address, sizeof(server_address)) < 0){
@@ -45,6 +45,9 @@ void Data_receiver::reciveMarketData(){
 
             // TODU: Serialize order into FIX/SBE and send back to exchange
 
+            
+            
+
                 // temp print testing
                 std::cout << "_------_" << std::endl;
                 std::cout << "Trade action: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") << " " << order_to_send.quantity << " " << order_to_send.symbol << " @ " << order_to_send.price << std::endl;
@@ -52,4 +55,32 @@ void Data_receiver::reciveMarketData(){
             }
         }
     close(sock);
+}
+
+void Data_receiver::sendMarketData(const std::string &send_order_message) {
+    // Send back the string to market
+
+    int send_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (send_sock < 0) {
+        std::cerr << "Sending Socket Creation Failed\n";
+        return;
+    }
+
+    sockaddr_in exchange_address{};
+    exchange_address.sin_family = AF_INET;
+    exchange_address.sin_port = htons(EXCHANGE_PORT);
+    exchange_address.sin_addr.s_addr = inet_addr("EXCHANGE_IP");
+
+    ssize_t bytes_sent = sendto(send_sock, send_order_message.c_str(), send_order_message.length(), 0, (sockaddr *)&exchange_address, sizeof(exchange_address));
+
+    if (bytes_sent < 0) {
+        std::cerr << "Failed to send order Message\n";
+        return;
+    } else std::cout << "Order sent: " << bytes_sent << "bytes\n";
+
+
+    close(send_sock);
+    
+    // DEBUG
+    // std::cout << "[SEND]: FIX MSSAGE : " << send_order_message << std::endl;
 }

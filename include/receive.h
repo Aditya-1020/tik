@@ -14,11 +14,12 @@
 #include "ordermanager.h"
 
 #define BUFFER_SIZE 1024
-
+#define RECIEVE_PORT 9000
+#define EXCHANGE_PORT 9001
 class Data_receiver {
 public:
     void reciveMarketData();
-    void sendMarketData();
+    void sendMarketData(const std::string &send_order_message);
 
 private:
     OrderBook orderbook;

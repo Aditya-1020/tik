@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "orders.h"
 #include "ordermanager.h"
+#include "receive.h"
 #include <iostream>
 #include <chrono>
 #include <random>
@@ -128,8 +129,8 @@ Market_data SBEParser::parseMarketData(const std::vector<uint8_t> &buffer){
 // 8=FIX.4.2\x || 019=123\x01 || 35=W\x01 || 55=EUR/USD\x01 || 268=2\x01269=0\x01 || 270=1.1234\x01 || 271=100000\x01 || 269=1\x01 || 
 // 270=1.1236\x01 || 271=120000\x01 || 10=168\x01
 
-std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string &sender_id, const std::string &target_id) {
-    // FIX: Suppress unused parameter warnings
+std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string &sender_id, const std::string &target_id, Data_receiver &receiver) {
+    // Suppress unused parameter warnings
     (void)sender_id;
     (void)target_id;
     
@@ -161,7 +162,11 @@ std::string FIXParser::serializeOrder(const TradeOrder &order, const std::string
     fix_message << message_without_checksum;
     fix_message << "10=" << std::setfill('0') << std::setw(3) << checksum << "\x01";
 
-    return fix_message.str();
+    std::string send_order_message = fix_message.str();
+
+    receiver.sendMarketData(send_order_message);
+
+    return send_order_message;
 }
 
 std::string FIXParser::generateOrderID() {
