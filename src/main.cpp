@@ -29,6 +29,8 @@ int main(){
 
         // std::cout << "shutdwn" << std::endl;
         receiver.stop();
+        receiver.printstats();
+
     } catch (const std::exception &e) {
         std::cerr << "ERROR" << e.what() << std::endl;
         return 1;

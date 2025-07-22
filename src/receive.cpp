@@ -2,6 +2,8 @@
 #include "receive.h"
 #include <optional>
 #include <sched.h>
+#include <numeric>
+#include <algorithm> // min, max in queu
 
 Data_receiver::Data_receiver() : order_manager("config.json") {}
 
@@ -47,7 +49,6 @@ void Data_receiver::stop() {
     //     order_processing_thread.join();
     // }
 
-    
     // Test later for vector based thread cheking faster on my system.
     // stores pointers to the threads in vector and checks each to join
     
@@ -115,30 +116,42 @@ void Data_receiver::processOrdersLoop() {
 
     while (!should_stop) {
         std::unique_lock<std::mutex> lock(queue_mutex);
-
         queue_cv.wait(lock, [this] {return !market_data_queue.empty() || should_stop;}); // true if data in queue or stop
 
         if (should_stop) break;
 
         while (!market_data_queue.empty()) {
+            auto start_time = std::chrono::high_resolution_clock::now();
+
             std::string raw_msg = market_data_queue.front();
             market_data_queue.pop();
-
             lock.unlock();
 
+            auto after_queue_time = std::chrono::high_resolution_clock::now();
+
             MessageRouter::parseMarketData(raw_msg, orderbook);
+            
+            auto after_parse_time = std::chrono::high_resolution_clock::now();
 
             std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
+            auto after_eval_time = std::chrono::high_resolution_clock::now();
 
             if (potential_order.has_value()) {
+                orders_generated++;
                 TradeOrder order_to_send = potential_order.value();
-
-                // Serialize and send order
-                std::string fix_message = FIXParser::serializeOrder(order_to_send, *this);
                 
-                std::cout << "[Thread-Order] Order placed: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") 
-                          << " " << order_to_send.quantity << " " << order_to_send.symbol 
-                          << " @ " << order_to_send.price << std::endl;
+                std::string fix_message = FIXParser::serializeOrder(order_to_send, *this); // Serialize and send order
+                
+                auto end_time = std::chrono::high_resolution_clock::now();
+
+                auto tick_to_trade_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+                auto parser_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_parse_time - after_queue_time).count();
+                auto order_manager_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_eval_time - after_parse_time).count();
+                
+                std::lock_guard<std::mutex> latency_lock(latency_mutex);
+                tick_to_trade_latency.push_back(tick_to_trade_ns);
+                parser_latency.push_back(parser_ns);
+                order_manager_latency.push_back(order_manager_ns);
             }
             
             lock.lock();
@@ -173,6 +186,25 @@ void Data_receiver::sendMarketData(const std::string_view send_order_message) {
 }
 
 void Data_receiver::printstats() const {
-    std::cout << "Messages recieved: " << message_received.load() << '\n';
-    std::cout << "Orders generated: " << orders_generated.load() << '\n';
+    std::lock_guard<std::mutex> lock(latency_mutex);
+
+    std::cout << "Performance stats\n";
+    std::cout << "messages recieved: " << message_received.load() << '\n';
+    std::cout << "orders generated: " << orders_generated.load() << '\n';
+
+    /*Test*/
+    if (!tick_to_trade_latency.empty()) {
+        auto print_latency = [](const std::string& name, const std::vector<long long>& latencies) {
+            long long sum = std::accumulate(latencies.begin(), latencies.end(), 0LL);
+            long long min = *std::min_element(latencies.begin(), latencies.end());
+            long long max = *std::max_element(latencies.begin(), latencies.end());
+            double avg = static_cast<double>(sum) / latencies.size();
+            
+            std::cout << name << " (ns): Avg=" << avg << ", Min=" << min << ", Max=" << max << '\n';
+        };
+        
+        print_latency("tik to trade: ", tick_to_trade_latency);
+        print_latency("parser latency: ", parser_latency);
+        print_latency("Order manager: ", order_manager_latency);
+    }
 }

@@ -10,6 +10,9 @@
 #include <condition_variable>
 #include <atomic>
 
+#include <chrono>
+#include <vector>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -32,10 +35,7 @@ public:
 
     void start();
     void stop();
-
-    // void reciveMarketData();
     void sendMarketData(const std::string_view send_order_message);
-
     void printstats() const;
 
 private:
@@ -50,6 +50,14 @@ private:
     std::atomic<uint64_t> message_received{0};
     std::atomic<uint64_t> orders_generated{0};
     
+    // measure
+    mutable std::vector<long long> tick_to_trade_latency;
+    mutable std::vector<long long> parser_latency;
+    mutable std::vector<long long> order_manager_latency;
+
+    mutable std::mutex latency_mutex;
+
+
     OrderBook orderbook;
     OrderManager order_manager;
 
