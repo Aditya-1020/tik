@@ -1,49 +1,72 @@
 // UDP receiver
 #include "receive.h"
 #include <optional>
+#include <sched.h>
+
+Data_receiver::Data_receiver() : order_manager("config.json") {}
+
+void Data_receiver::pinThreadCPU(std::thread &t, int cpu_num) {
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu_num, &cpuset);
+    int rec = pthread_setaffinity_np(t.native_handle(), sizeof(cpuset), &cpuset);
+    if (rec != 0) {
+        std::cerr << "Error calling pthread" << rec << '\n';
+    }
+}
+
 
 void Data_receiver::start() {
     should_stop = false;
 
-    // start thread
-    market_data_thread = std::thread(&Data_receiver::recieveMarketDataLoop, this);
-    order_processing_thread = std::thread(&Data_receiver::processOrdersLoop, this);
+    try {
+        // start thread        
+        market_data_thread = std::thread(&Data_receiver::recieveMarketDataLoop, this);
+        order_processing_thread = std::thread(&Data_receiver::processOrdersLoop, this);
 
-    // test print
-    std::cout << "Started" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // test print
+        std::cout << "Started" << std::endl;
+    
+    } catch (const std::exception &e) {
+        std::cerr << "ERROR: failed thread start" << std::endl;
+        stop();
+        throw;
+    }
 }
 
 void Data_receiver::stop() {
     should_stop = true;
     queue_cv.notify_all();
 
-    if (market_data_thread.joinable()) {
-        market_data_thread.join();
-    }
-    if (order_processing_thread.joinable()) {
-        order_processing_thread.join();
-    }
+    // if (market_data_thread.joinable()) {
+    //     market_data_thread.join();
+    // }
+    // if (order_processing_thread.joinable()) {
+    //     order_processing_thread.join();
+    // }
 
-    /* 
-    Test later for vector based thread cheking faster on my system.
-    - stores pointers to the threads in vector and checks each to join
-        
+    
+    // Test later for vector based thread cheking faster on my system.
+    // stores pointers to the threads in vector and checks each to join
+    
     std::vector<std::thread*> threads = {
         &market_data_thread, &order_processing_thread
     };
-    f
-    or (auto* t : threads) {
+    
+    for (auto* t : threads) {
         if (t->joinable()) {
             t->join();
         }
     }
-    */
 
     // test print
     std::cout << "STOPPed" << std::endl;
 }
 
-void Data_receiver::reciveMarketData(){
+void Data_receiver::recieveMarketDataLoop(){
+
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         std::cerr << "Socket Creation Failed\n";
@@ -74,24 +97,55 @@ void Data_receiver::reciveMarketData(){
         if (bytes_read <= 0) continue;
 
         std::string raw_msg(buffer, bytes_read);
-        
-        // MessageRouter::parseMarketData(raw_msg, orderbook);
 
-
-        std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
-
-        if (potential_order.has_value()) {
-            TradeOrder order_to_send = potential_order.value();
-
-            // Serialize and send order
-            std::string fix_message = FIXParser::serializeOrder(order_to_send, *this);
-            
-            std::cout << "Order placed: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") 
-                      << " " << order_to_send.quantity << " " << order_to_send.symbol 
-                      << " @ " << order_to_send.price << std::endl;
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            market_data_queue.push(raw_msg);
         }
+        queue_cv.notify_all();
     }
     close(sock);
+    // test print
+    std::cout << "[thread] reciever stopped" << std::endl;
+}
+
+void Data_receiver::processOrdersLoop() {
+    // test print
+    std::cout << "processing order thread" << std::endl;
+
+    while (!should_stop) {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+
+        queue_cv.wait(lock, [this] {return !market_data_queue.empty() || should_stop;}); // true if data in queue or stop
+
+        if (should_stop) break;
+
+        while (!market_data_queue.empty()) {
+            std::string raw_msg = market_data_queue.front();
+            market_data_queue.pop();
+
+            lock.unlock();
+
+            MessageRouter::parseMarketData(raw_msg, orderbook);
+
+            std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
+
+            if (potential_order.has_value()) {
+                TradeOrder order_to_send = potential_order.value();
+
+                // Serialize and send order
+                std::string fix_message = FIXParser::serializeOrder(order_to_send, *this);
+                
+                std::cout << "[Thread-Order] Order placed: " << (order_to_send.side == TradeOrder::Side::BUY ? "BUY" : "SELL") 
+                          << " " << order_to_send.quantity << " " << order_to_send.symbol 
+                          << " @ " << order_to_send.price << std::endl;
+            }
+            
+            lock.lock();
+        }
+    }
+    // test print
+    std::cout << "[thread order] order thread stopped" << std::endl;
 }
 
 void Data_receiver::sendMarketData(const std::string_view send_order_message) {
@@ -116,4 +170,9 @@ void Data_receiver::sendMarketData(const std::string_view send_order_message) {
     }
 
     close(send_sock);
+}
+
+void Data_receiver::printstats() const {
+    std::cout << "Messages recieved: " << message_received.load() << '\n';
+    std::cout << "Orders generated: " << orders_generated.load() << '\n';
 }

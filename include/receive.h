@@ -14,6 +14,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <pthread.h>
 
 #include "orders.h"
 #include "parser.h"
@@ -26,23 +28,33 @@
 class Data_receiver {
 public:
 
+    Data_receiver();
+
     void start();
     void stop();
 
-    void reciveMarketData();
+    // void reciveMarketData();
     void sendMarketData(const std::string_view send_order_message);
+
+    void printstats() const;
 
 private:
     std::thread market_data_thread;
     std::thread order_processing_thread;
+
     std::queue<std::string> market_data_queue;
     std::mutex queue_mutex; // temp: lock thread to this to read
     std::condition_variable queue_cv;
     std::atomic<bool> should_stop{false};
+
+    std::atomic<uint64_t> message_received{0};
+    std::atomic<uint64_t> orders_generated{0};
     
     OrderBook orderbook;
     OrderManager order_manager;
 
     void recieveMarketDataLoop(); // take UDP and quue them
     void processOrdersLoop(); // process queued messages and gentrate ordrs
+
+    void pinThreadCPU(std::thread &t, int cpu_num);
 };
