@@ -2,6 +2,47 @@
 #include "receive.h"
 #include <optional>
 
+void Data_receiver::start() {
+    should_stop = false;
+
+    // start thread
+    market_data_thread = std::thread(&Data_receiver::recieveMarketDataLoop, this);
+    order_processing_thread = std::thread(&Data_receiver::processOrdersLoop, this);
+
+    // test print
+    std::cout << "Started" << std::endl;
+}
+
+void Data_receiver::stop() {
+    should_stop = true;
+    queue_cv.notify_all();
+
+    if (market_data_thread.joinable()) {
+        market_data_thread.join();
+    }
+    if (order_processing_thread.joinable()) {
+        order_processing_thread.join();
+    }
+
+    /* 
+    Test later for vector based thread cheking faster on my system.
+    - stores pointers to the threads in vector and checks each to join
+        
+    std::vector<std::thread*> threads = {
+        &market_data_thread, &order_processing_thread
+    };
+    f
+    or (auto* t : threads) {
+        if (t->joinable()) {
+            t->join();
+        }
+    }
+    */
+
+    // test print
+    std::cout << "STOPPed" << std::endl;
+}
+
 void Data_receiver::reciveMarketData(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -24,19 +65,18 @@ void Data_receiver::reciveMarketData(){
     sockaddr_in client_address{};
     socklen_t client_len = sizeof(client_address);
     
-    std::cout << "Trading gateway started. Listening for market data..." << std::endl;
+    std::cout << "[THREAD] started on port" << RECIEVE_PORT << std::endl;
     
-    while (true){
+    while (!should_stop){
         std::memset(buffer, 0, sizeof(buffer));
         int bytes_read = recvfrom(sock, buffer, sizeof(buffer), 0, (sockaddr *)&client_address, &client_len);
 
-        if (bytes_read <= 0) break;
+        if (bytes_read <= 0) continue;
 
         std::string raw_msg(buffer, bytes_read);
-        MessageRouter::parseMarketData(raw_msg, orderbook);
+        
+        // MessageRouter::parseMarketData(raw_msg, orderbook);
 
-        // double best_bid = orderbook.getBestBid();
-        // double best_ask = orderbook.getBestAsk();
 
         std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
 
