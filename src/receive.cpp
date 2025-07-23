@@ -3,9 +3,27 @@
 #include <optional>
 #include <sched.h>
 #include <numeric>
-#include <algorithm> // min, max in queu
+#include <algorithm>
 
-Data_receiver::Data_receiver() : order_manager("config.json") {}
+Data_receiver::Data_receiver() : order_manager("config.json") {
+    for (int i = 0; i < MESSAGE_POOL_SIZE; ++i) {
+        auto msg = new std::string();
+        msg->reserve(MESSAGE_ALLOC);
+        available_messages.push(msg);
+    }
+}
+
+Data_receiver::~Data_receiver() {
+    stop();
+    
+    std::string *msg;
+    while (available_messages.pop(msg)) {
+        delete msg;
+    } 
+    while (market_data_queue.pop(msg)) {
+        delete msg;
+    }
+}
 
 void Data_receiver::pinThreadCPU(std::thread &t, int cpu_num) {
     cpu_set_t cpuset;
@@ -13,10 +31,9 @@ void Data_receiver::pinThreadCPU(std::thread &t, int cpu_num) {
     CPU_SET(cpu_num, &cpuset);
     int rec = pthread_setaffinity_np(t.native_handle(), sizeof(cpuset), &cpuset);
     if (rec != 0) {
-        std::cerr << "Error calling pthread" << rec << '\n';
+        std::cerr << "Error calling pthread " << rec << '\n';
     }
 }
-
 
 void Data_receiver::start() {
     should_stop = false;
@@ -26,11 +43,11 @@ void Data_receiver::start() {
         market_data_thread = std::thread(&Data_receiver::recieveMarketDataLoop, this);
         order_processing_thread = std::thread(&Data_receiver::processOrdersLoop, this);
 
+        pinThreadCPU(market_data_thread, 0);
+        pinThreadCPU(order_processing_thread, 1);
+
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-        // test print
-        std::cout << "Started" << std::endl;
-    
     } catch (const std::exception &e) {
         std::cerr << "ERROR: failed thread start" << std::endl;
         stop();
@@ -40,18 +57,7 @@ void Data_receiver::start() {
 
 void Data_receiver::stop() {
     should_stop = true;
-    queue_cv.notify_all();
 
-    // if (market_data_thread.joinable()) {
-    //     market_data_thread.join();
-    // }
-    // if (order_processing_thread.joinable()) {
-    //     order_processing_thread.join();
-    // }
-
-    // Test later for vector based thread cheking faster on my system.
-    // stores pointers to the threads in vector and checks each to join
-    
     std::vector<std::thread*> threads = {
         &market_data_thread, &order_processing_thread
     };
@@ -61,12 +67,16 @@ void Data_receiver::stop() {
             t->join();
         }
     }
-
-    // test print
+    
     std::cout << "STOPPed" << std::endl;
+
 }
 
 void Data_receiver::recieveMarketDataLoop(){
+
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_max(SCHED_FIFO);
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -74,10 +84,14 @@ void Data_receiver::recieveMarketDataLoop(){
         return;
     }
     
+    int recv_buf_size = BUFFER_SIZE * BUFFER_SIZE;
+    setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &recv_buf_size, sizeof(recv_buf_size));
+    
     sockaddr_in server_address{};
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(RECIEVE_PORT);
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
+
 
     if (bind(sock, (sockaddr *)&server_address, sizeof(server_address)) < 0){
         std::cerr << "Connection Failed\n";
@@ -89,7 +103,7 @@ void Data_receiver::recieveMarketDataLoop(){
     sockaddr_in client_address{};
     socklen_t client_len = sizeof(client_address);
     
-    std::cout << "[THREAD] started on port" << RECIEVE_PORT << std::endl;
+    // std::cout << "[THREAD] started on port" << RECIEVE_PORT << std::endl;
     
     while (!should_stop){
         std::memset(buffer, 0, sizeof(buffer));
@@ -97,114 +111,128 @@ void Data_receiver::recieveMarketDataLoop(){
 
         if (bytes_read <= 0) continue;
 
-        std::string raw_msg(buffer, bytes_read);
+        message_received++;
 
-        {
-            std::lock_guard<std::mutex> lock(queue_mutex);
-            market_data_queue.push(raw_msg);
+        // Message from pool
+         std::string *msg_ptr;
+        if (available_messages.pop(msg_ptr)) {
+            available_messages.pop(msg_ptr);
+        } else {
+            msg_ptr = new std::string();
+            msg_ptr->reserve(MESSAGE_ALLOC);
         }
-        queue_cv.notify_all();
+
+        msg_ptr->assign(buffer, bytes_read); // reuse string memory
+
+        while (!market_data_queue.push(msg_ptr)) {
+            std::this_thread::yield();
+        }
     }
     close(sock);
-    // test print
-    std::cout << "[thread] reciever stopped" << std::endl;
 }
 
 void Data_receiver::processOrdersLoop() {
-    // test print
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_max(SCHED_FIFO);
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+
     std::cout << "processing order thread" << std::endl;
 
+    std::string *raw_msg;
+    
     while (!should_stop) {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        queue_cv.wait(lock, [this] {return !market_data_queue.empty() || should_stop;}); // true if data in queue or stop
+        if (!market_data_queue.pop(raw_msg)) {
+            std::this_thread::yield();
+            continue;
+        }
 
-        if (should_stop) break;
+        auto start_time = std::chrono::high_resolution_clock::now();
 
-        while (!market_data_queue.empty()) {
-            auto start_time = std::chrono::high_resolution_clock::now();
+        MessageRouter::parseMarketData(*raw_msg, orderbook);
+        
+        auto after_parse_time = std::chrono::high_resolution_clock::now();
 
-            std::string raw_msg = market_data_queue.front();
-            market_data_queue.pop();
-            lock.unlock();
+        std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD"); // change this to read from config.json
+        auto after_eval_time = std::chrono::high_resolution_clock::now();
 
-            auto after_queue_time = std::chrono::high_resolution_clock::now();
-
-            MessageRouter::parseMarketData(raw_msg, orderbook);
+        if (potential_order.has_value()) {
+            orders_generated++;
+            TradeOrder& order_to_send = potential_order.value();
             
-            auto after_parse_time = std::chrono::high_resolution_clock::now();
+            std::string fix_message = FIXParser::serializeOrder(order_to_send, *this);
+            
+            auto end_time = std::chrono::high_resolution_clock::now();
 
-            std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD");
-            auto after_eval_time = std::chrono::high_resolution_clock::now();
-
-            if (potential_order.has_value()) {
-                orders_generated++;
-                TradeOrder order_to_send = potential_order.value();
-                
-                std::string fix_message = FIXParser::serializeOrder(order_to_send, *this); // Serialize and send order
-                
-                auto end_time = std::chrono::high_resolution_clock::now();
-
-                auto tick_to_trade_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
-                auto parser_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_parse_time - after_queue_time).count();
-                auto order_manager_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_eval_time - after_parse_time).count();
-                
-                std::lock_guard<std::mutex> latency_lock(latency_mutex);
-                tick_to_trade_latency.push_back(tick_to_trade_ns);
-                parser_latency.push_back(parser_ns);
-                order_manager_latency.push_back(order_manager_ns);
+            auto tick_to_trade_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+            auto parser_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_parse_time - start_time).count();
+            auto order_manager_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(after_eval_time - after_parse_time).count();
+            
+            if (latency_index.load() < MAX_LATENCY_SAMPLES) {
+                int idx = latency_index.fetch_add(1);
+                if (idx < MAX_LATENCY_SAMPLES) {
+                    tick_to_trade_latency[idx] = tick_to_trade_ns;
+                    parser_latency[idx] = parser_ns;
+                    order_manager_latency[idx] = order_manager_ns;
+                }
             }
-            
-            lock.lock();
+        }
+        
+        raw_msg->clear(); // return to pool
+        while (!available_messages.push(raw_msg)) {
+            std::this_thread::yield();
         }
     }
-    // test print
     std::cout << "[thread order] order thread stopped" << std::endl;
 }
 
 void Data_receiver::sendMarketData(const std::string_view send_order_message) {
-    // Send back the string to market
-
-    int send_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (send_sock < 0) {
-        std::cerr << "Sending Socket Creation Failed\n";
-        return;
+    static thread_local int send_sock = -1;
+    static thread_local sockaddr_in exchange_address{};
+    
+    if (send_sock == -1) { // Reuse socket connection
+        send_sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (send_sock < 0) {
+            std::cerr << "Sending Socket Creation Failed\n";
+            return;
+        }
+        
+        exchange_address.sin_family = AF_INET;
+        exchange_address.sin_port = htons(EXCHANGE_PORT);
+        exchange_address.sin_addr.s_addr = inet_addr("127.0.0.1");
     }
 
-    sockaddr_in exchange_address{};
-    exchange_address.sin_family = AF_INET;
-    exchange_address.sin_port = htons(EXCHANGE_PORT);
-    exchange_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-    ssize_t bytes_sent = sendto(send_sock, send_order_message.data(), send_order_message.length(), 0, (sockaddr *)&exchange_address, sizeof(exchange_address));
+    ssize_t bytes_sent = sendto(send_sock, send_order_message.data(), send_order_message.length(), 0, 
+                                (sockaddr *)&exchange_address, sizeof(exchange_address));
 
     if (bytes_sent < 0) {
         std::cerr << "Failed to send order Message\n";
-        return;
     }
-
-    close(send_sock);
 }
 
 void Data_receiver::printstats() const {
-    std::lock_guard<std::mutex> lock(latency_mutex);
-
     std::cout << "Performance stats\n";
-    std::cout << "messages recieved: " << message_received.load() << '\n';
+    std::cout << "messages received: " << message_received.load() << '\n';
     std::cout << "orders generated: " << orders_generated.load() << '\n';
 
-    /*Test*/
-    if (!tick_to_trade_latency.empty()) {
-        auto print_latency = [](const std::string& name, const std::vector<long long>& latencies) {
-            long long sum = std::accumulate(latencies.begin(), latencies.end(), 0LL);
-            long long min = *std::min_element(latencies.begin(), latencies.end());
-            long long max = *std::max_element(latencies.begin(), latencies.end());
-            double avg = static_cast<double>(sum) / latencies.size();
+    int sample_count = std::min(latency_index.load(), MAX_LATENCY_SAMPLES);
+    if (sample_count > 0) {
+        auto print_latency = [sample_count](const std::string& name, const std::array<long long, MAX_LATENCY_SAMPLES>& latencies) {
+            long long sum = 0;
+            long long min_val = LLONG_MAX;
+            long long max_val = 0;
             
-            std::cout << name << " (ns): Avg=" << avg << ", Min=" << min << ", Max=" << max << '\n';
+            for (int i = 0; i < sample_count; ++i) {
+                sum += latencies[i];
+                min_val = std::min(min_val, latencies[i]);
+                max_val = std::max(max_val, latencies[i]);
+            }
+            
+            double avg = static_cast<double>(sum) / sample_count;
+            std::cout << name << " (ns): Avg=" << avg << ", Min=" << min_val << ", Max=" << max_val << '\n';
         };
         
-        print_latency("tik to trade: ", tick_to_trade_latency);
+        print_latency("tick to trade: ", tick_to_trade_latency);
         print_latency("parser latency: ", parser_latency);
-        print_latency("Order manager: ", order_manager_latency);
+        print_latency("order manager: ", order_manager_latency);
     }
 }

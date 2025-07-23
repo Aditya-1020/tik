@@ -5,7 +5,6 @@
 #include <iostream>
 #include "json.hpp"
 
-
 class OrderBook; // Forward declertion brek circular dependency
 
 struct TradeOrder {
@@ -19,7 +18,7 @@ struct TradeOrder {
 class OrderManager {
 public:
     OrderManager(const std::string &config_path);
-    std::optional<TradeOrder> evaluateMarket(const OrderBook& book, std::string_view symbol);
+    std::optional<TradeOrder> evaluateMarket(const OrderBook &book, std::string_view symbol);
 
 private:
     std::string symbol;

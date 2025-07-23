@@ -6,6 +6,8 @@ void OrderBook::updateBid(double price, int quantity) {
     } else {
         bids.erase(price); // remove at this price level
     }
+
+    best_bid = bids.empty() ? 0.0 : bids.rbegin()->first;
 }
 
 void OrderBook::updateAsk(double price, int quantity) {
@@ -14,16 +16,16 @@ void OrderBook::updateAsk(double price, int quantity) {
     } else {
         asks.erase(price);
     }
+    
+    best_ask = asks.empty() ? 0.0 : asks.begin()->first;
 }
 
 double OrderBook::getBestBid() const {
-    if (bids.empty()) return 0.0;
-    return bids.rbegin()->first;
+    return best_bid;
 }
 
 double OrderBook::getBestAsk() const {
-    if (asks.empty()) return 0.0;
-    return asks.begin()->first;
+    return best_ask;
 }
 
 int OrderBook::getBidQuantity(double price) const {

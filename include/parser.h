@@ -6,8 +6,9 @@
 #include <string_view>
 
 #define CHECKSUM_MODULO 256
+#define EST_FIX_MESSAGE_SIZE 256
 
-// Break circular dependencies with Foward Declerations
+// Forward declarations
 class OrderBook; 
 struct TradeOrder;
 class Data_receiver;
@@ -42,16 +43,14 @@ public:
     };
 
     struct MDContext {
-        std::string entry_type; // 0 = bid, 1 = ask -- Self note why not use bool?
+        std::string_view entry_type; // Changed to string_view for performance
         double price = 0.0;
         int quantity = 0;
         bool has_price = false;
         bool has_quantity = false;
 
-        MDContext() : entry_type(""), price(0.0), quantity(0), has_price(false), has_quantity(false) {}
-
         void reset() {
-            entry_type = "";
+            entry_type = std::string_view{};
             price = 0.0;
             quantity = 0;
             has_price = false;
@@ -68,12 +67,11 @@ public:
         std::string_view target_id = "EXCHANGE");
 
 private:
-
-    // Parsing helpder
+    // Parsing helpers (kept for compatibility)
     static State processChar(char c, State current_state, std::string &current_tag, std::string &current_value, MDContext &md_context, OrderBook &book, std::string &symbol);
     static void processField(std::string_view tag, std::string_view value, MDContext &md_context, OrderBook &book, std::string &symbol); 
     static State determineNextState(const std::string_view &tag, const MDContext &md_context);
-    static void commitMDEntry(MDContext &md_context, OrderBook &book, const std::string_view &symbol);
+    static void commitMDEntry(MDContext &md_context, OrderBook &book);
     
     // Serialize helpers
     static std::string generateOrderID();
@@ -82,7 +80,7 @@ private:
     static std::string formatPrice(double price);
 };
 
-class SBEParser {
-public:
-    static Market_data parseMarketData(const std::vector<uint8_t> &buffer);
-};
+// class SBEParser {
+// public:
+//     static Market_data parseMarketData(const std::vector<uint8_t> &buffer);
+// };
