@@ -152,7 +152,7 @@ void Data_receiver::processOrdersLoop() {
         
         auto after_parse_time = std::chrono::high_resolution_clock::now();
 
-        std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook, "EUR/USD"); // change this to read from config.json
+        std::optional<TradeOrder> potential_order = order_manager.evaluateMarket(orderbook);
         auto after_eval_time = std::chrono::high_resolution_clock::now();
 
         if (potential_order.has_value()) {

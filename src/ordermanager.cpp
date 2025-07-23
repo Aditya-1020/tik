@@ -11,13 +11,13 @@ OrderManager::OrderManager(const std::string &config_path) {
     nlohmann::json config;
     config_file >> config;
 
-    // this->symbol = config["symbol"];
+    this->symbol = config["symbol"];
     this->target_buy_price = config["target_buy_price"];
     this->order_quantity = config["order_quantity"];
 
 }
 
-std::optional<TradeOrder> OrderManager::evaluateMarket(const OrderBook &book,[[maybe_unused]] const std::string_view symbol) {
+std::optional<TradeOrder> OrderManager::evaluateMarket(const OrderBook &book) {
     double best_ask = book.getBestAsk();
 
     if (best_ask > 0.0 && best_ask < this->target_buy_price) {

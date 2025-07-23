@@ -1,5 +1,6 @@
-.vscode
-dump/
-compile_commands.json
+.vscode/
 .cache/
-tik
+dump/
+obj/
+compile_commands.json
+TIK
