@@ -94,6 +94,7 @@ void Data_receiver::recieveMarketDataLoop(){
 
 
     if (bind(sock, (sockaddr *)&server_address, sizeof(server_address)) < 0){
+        std::cerr << "Bind failed at port " << RECIEVE_PORT << ": " << strerror(errno) << std::endl;
         std::cerr << "Connection Failed\n";
         close(sock);
         return;
@@ -102,8 +103,7 @@ void Data_receiver::recieveMarketDataLoop(){
     char buffer[BUFFER_SIZE];
     sockaddr_in client_address{};
     socklen_t client_len = sizeof(client_address);
-    
-    // std::cout << "[THREAD] started on port" << RECIEVE_PORT << std::endl;
+
     
     while (!should_stop){
         std::memset(buffer, 0, sizeof(buffer));
