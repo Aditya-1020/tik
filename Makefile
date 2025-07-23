@@ -4,7 +4,13 @@ SRCDIR = src
 INCDIR = include
 OBJDIR = obj
 
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -I$(INCDIR)
+CXXFLAGS = -std=c++17 -Wall -Wextra -I$(INCDIR)
+
+#optimizations
+CXXFLAGS += -O3 -march=native -mtune=native -flto=auto -ffast-math
+CXXFLAGS += -DNDEBUG -funroll-loops -finline-functions
+
+CXXFLAGS += -pthread
 LDFLAGS = -lpthread
 
 TARGET = TIK
